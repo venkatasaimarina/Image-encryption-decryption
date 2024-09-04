@@ -52,85 +52,107 @@ def openfilename():
 # Image handling functions
 def open_img():
     """Open and display the selected image."""
-    global x, panelA, panelB, count, eimg, location, filename
+    global x, panelA, panelB, eimg, location, filename
     count = 0
     x = openfilename()
-    
-    # Open the image using PIL
-    img = Image.open(x)
-    
-    # Resize the image to fit within the Tkinter window (e.g., 300x300 pixels)
-    img = img.resize((300, 300), Image.ANTIALIAS)
-    
-    # Convert the image to a Tkinter-compatible PhotoImage object
-    eimg = img
-    img = ImageTk.PhotoImage(img)
-    
-    location = getpath(x)
-    filename = getfilename(x)
-    
-    if panelA is None or panelB is None:
-        panelA = Label(image=img)
-        panelA.image = img
-        panelA.pack(side="left", padx=10, pady=10)
-        
-        panelB = Label(image=img)
-        panelB.image = img
-        panelB.pack(side="right", padx=10, pady=10)
-    else:
-        panelA.configure(image=img)
-        panelB.configure(image=img)
-        panelA.image = img
-        panelB.image = img
+
+    if not x:
+        mbox.showerror("Error", "No file selected!")
+        return
+
+    try:
+        # Open the image using PIL
+        img = Image.open(x)
+
+        # Resize the image to fit within the Tkinter window (e.g., 300x300 pixels)
+        img = img.resize((300, 300), Image.LANCZOS)
+
+        # Convert the image to a Tkinter-compatible PhotoImage object
+        eimg = img
+        img = ImageTk.PhotoImage(img)
+
+        location = getpath(x)
+        filename = getfilename(x)
+
+        if panelA is None or panelB is None:
+            panelA = Label(image=img)
+            panelA.image = img
+            panelA.pack(side="left", padx=10, pady=10)
+
+            panelB = Label(image=img)
+            panelB.image = img
+            panelB.pack(side="right", padx=10, pady=10)
+        else:
+            panelA.configure(image=img)
+            panelB.configure(image=img)
+            panelA.image = img
+            panelB.image = img
+
+    except Exception as e:
+        mbox.showerror("Error", f"Failed to load image: {str(e)}")
 
 
 def en_fun():
     """Encrypt the selected image."""
     global x, encrypted_image, key
-    input_image = cv2.imread(x, 0)
-    x1, y = input_image.shape
+    input_image = cv2.imread(x)  # Load the image in color mode
+    x1, y, z = input_image.shape  # Note that 'z' is the number of color channels
     input_image = input_image.astype(float) / 255.0
-    
+
     mu, sigma = 0, 0.1
-    key = np.random.normal(mu, sigma, (x1, y)) + np.finfo(float).eps
+    key = np.random.normal(mu, sigma, (x1, y, z)) + np.finfo(float).eps
     encrypted_image = input_image / key
-    
+
     cv2.imwrite('encrypted_image.jpg', encrypted_image * 255)
-    
+
     imge = Image.open('encrypted_image.jpg')
+    imge = imge.resize((300, 300), Image.LANCZOS)
     imge = ImageTk.PhotoImage(imge)
     panelB.configure(image=imge)
     panelB.image = imge
-    
+
     mbox.showinfo("Encrypt Status", "Image Encrypted successfully.")
+
 
 def de_fun():
     """Decrypt the encrypted image."""
     global encrypted_image, key
     output_image = encrypted_image * key
     output_image *= 255.0
-    
+
+    # Ensure the output image values are within valid range
+    output_image = np.clip(output_image, 0, 255).astype(np.uint8)
+
     cv2.imwrite('output_image.jpg', output_image)
-    
+
     imgd = Image.open('output_image.jpg')
+    imgd = imgd.resize((300, 300), Image.LANCZOS)
     imgd = ImageTk.PhotoImage(imgd)
     panelB.configure(image=imgd)
     panelB.image = imgd
-    
+
     mbox.showinfo("Decrypt Status", "Image decrypted successfully.")
 
+
 def reset():
-    """Reset the image to its original state."""
-    global x, eimg, count
-    image = cv2.imread(x)[:, :, ::-1]
-    count = 6
-    image = Image.fromarray(image)
-    eimg = image
-    image = ImageTk.PhotoImage(image)
-    panelB.configure(image=image)
-    panelB.image = image
+    """Reset the application state to its original state, clearing the selected image."""
+    global x, eimg, panelA, panelB
+
+    # Reset the variables
+    x = None
+    eimg = None
+
+    # Clear the displayed images from the panels
+    if panelA is not None:
+        panelA.configure(image='')
+        panelA.image = None
     
-    mbox.showinfo("Success", "Image reset to original format!")
+    if panelB is not None:
+        panelB.configure(image='')
+        panelB.image = None
+    
+    mbox.showinfo("Success", "Image reset and file deselected successfully!")
+
 
 def save_img():
     """Save the encrypted/decrypted image."""
